@@ -1,0 +1,297 @@
+---
+title: "midterm project_appendix"
+author: "chen wei"
+date: "2022-10-23"
+output: github_document
+always_allow_html : true
+---
+
+## R Markdown
+```{r setup, include=FALSE}
+library(lubridate)
+library(usmap)
+library(dplyr)
+library(tidyverse)
+library(data.table)
+library(dbplyr)
+library(ggplot2)
+library(webshot)
+```
+## Covid-19 new cases associated with the virus concentration in water other than air
+
+# abstract
+  During this worldwide pandemic,most of the policy was based on Coronavirus disease can be tranmitted by airbone. There were few evidence shown that coronavirus disease lther tranmitted way, So in this research is to explore whether it have association between the incidence new cases and the concentration of virus in waste water include 19 counties of California. The result shows that the concentration and the new cases shows a similar distribution in both demographical and date dimension. But due to various reason, further explornary analysis is needed.
+  
+# background
+  In late December 2019, people in Wuhan, China began to get sick with a previously unknown pneumonia, marking the beginning of a new infectious disease, later identified as a new type of coronavirus.Soon this infectious disease became a worldwide pademic.
+  The International Committee on the Taxonomy of Viruses selected the name severe acute respiratory syndrome coronavirus 2 (SARS-CoV-2) to represent that the new virus is a sister of the original SARS virus. The disease the virus causes was named coronavirus disease 2019 (COVID-19) by the World Health Organization (WHO).
+  The situation continues to change rapidly. multiple policy such as 6 feet social distancing, facial masks, and quaratine are all based on the SARS-CoV-2 can be transmitted by airbone. but there are few research to see that if SARS-CoV-2 can be transmitted by water. 
+   During the COVID-19 pandemic, it has been used for the detection and quantification of SARS-CoV-2 virus shed into wastewater via feces of infected persons. Wastewater surveillance tracks ""pooled samples"" that reflect the overall disease activity for a community serviced by the wastewater treatment plant (an area known as a ""sewershed""), rather than tracking samples from individual people. 
+   Collecting and analyzing wastewater samples for the overall amount of SARS-CoV-2 viral particles present can help inform public health about the level of viral transmission within a community. Data from wastewater testing are not intended to replace existing COVID-19 surveillance systems, but are meant to complement them. While wastewater surveillance cannot determine the exact number of infected persons in the area being monitored, it can provide the overall trend of virus concentration within that community. 
+# method
+# wastewater collection
+  Wastewater from communities is collected by wastewater systems and transported to wastewater treatment plants. Participating utilities collect samples of untreated wastewater or primary sludge. These samples are sent to environmental laboratories for SARS-CoV-2 testing. The testing data, along with the associated utility metadata, are submitted to participating STLT health departments. Health departments submit these data to CDC through the online NWSS DCIPHER portal. CDC analyzes the data in real time and reports results to the health department for use in their COVID-19 response. CDC also summarizes the national data on COVID Data Tracker.
+  SARS-CoV-2 RNA is quantified using PCR technology: reverse transcription quantitative PCR (RT-qPCR), reverse transcription digital PCR (RT-dPCR), or reverse transcription droplet digital PCR (RT-ddPCR). Laboratory staff should convert concentration estimates produced by PCR software (in units of copies per reaction or copies per reaction volume) to virus concentrations per volume of unconcentrated wastewater or sludge sample. This conversion accounts for the volume of template used in the PCR (and reverse transcriptase reaction if separate), the concentration factor of nucleic acid extraction, and sample concentration processes.
+  the data was download as .csv from the website
+  https://data.ca.gov/dataset/covid-19-wastewater-surveillance-data-california
+#California case
+  The "Total Tests" and "Positive Tests" columns show totals based on the collection date. There is a lag between when a specimen is collected and when it is reported in this dataset. As a result, the most recent dates on the table will temporarily show NONE in the "Total Tests" and "Positive Tests" columns. This should not be interpreted as no tests being conducted on these dates. Instead, these values will be updated with the number of tests conducted as data is received.
+    When comparing to the state dashboard, the dashboard numbers will correspond to the "Reported" columns in this table. Also note that the dashboard displays data that is one day prior to today's date.
+https://data.ca.gov/dataset/covid-19-time-series-metrics-by-county-and-state
+# software using
+  the dataset was downloaded as .csv form. Excel was using for slightly adjusted few columns. Most of the data analyzing, figure generating, and data wrangling was completed by R version 4.2.1 (2022-06-23 ucrt).
+# statistic anlystic
+  First download and then read in with data.from the resource website seprately(code and output can be seen on Appendix).The data reported the incidence case and cummulative case include 59 county from california started from 2020-2-1, the last updated is 2022-10-11. There are 60085 observation based on date,985 observation in each 59 county in the whole california, which is much bigger than the data download from waterwaste website.
+   The data downloaded from the waterwaste website contains 12773 observation started from 2021-1-1, last updated is2022-9-9 based on the data include only 21 county. After  an basic explornary analysis, 985 observation from case data and 14 observation from waterwaste data was removed. 
+```{r,echo=FALSE}
+case <- data.table::fread("Statewide COVID-19 Cases Deaths Tests.csv")
+waterwaste <- data.table::fread("master-covid-public.csv")
+waterwaste<-select(waterwaste, epaid,wwtp_name,reporting_jurisdiction,county_names
+,test_result_date,pcr_target_avg_conc,Sample_Location_Longitude,Sample_Location_Latitude)
+```
+
+```{r include=FALSE}
+#switch the FIPS code in waterwaste data to county name for a easier identification and further expolore
+waterwaste$county_names[waterwaste$county_names=="06067"]<-"Sacramento"
+waterwaste$county_names[waterwaste$county_names=="06001, 06013"]<-"Alameda"
+waterwaste$county_names[waterwaste$county_names=="06063"]<-"Plumas"
+waterwaste$county_names[waterwaste$county_names=="06029"]<-"Kern"
+waterwaste$county_names[waterwaste$county_names=="06025"]<-"Imperial"
+waterwaste$county_names[waterwaste$county_names=="06013"]<-"Contra Costa"
+waterwaste$county_names[waterwaste$county_names=="06019"]<-"Fresno"
+waterwaste$county_names[waterwaste$county_names=="06037"]<-"Los Angeles"
+waterwaste$county_names[waterwaste$county_names=="06037, 06111"]<-"Los Angeles"
+waterwaste$county_names[waterwaste$county_names=="06033"]<-"Lake"
+waterwaste$county_names[waterwaste$county_names=="06059"]<-"Orange"
+waterwaste$county_names[waterwaste$county_names=="06071"]<-"San Bernardino"
+waterwaste$county_names[waterwaste$county_names=="06073"]<-"San Diego"
+waterwaste$county_names[waterwaste$county_names=="06075, 06081"]<-"San Francisco"
+waterwaste$county_names[waterwaste$county_names=="06099"]<-"Stanislaus"
+waterwaste$county_names[waterwaste$county_names=="06047"]<-"Merced"
+waterwaste$county_names[waterwaste$county_names=="06081"]<-"San Mateo"
+waterwaste$county_names[waterwaste$county_names=="06085"]<-"Santa Clara"
+waterwaste$county_names[waterwaste$county_names=="06111"]<-"Ventura"
+waterwaste$county_names[waterwaste$county_names=="06113"]<-"Yolo"
+
+waterwaste$county_names[waterwaste$county_names=="Orange County"]<-"Orange"
+```
+
+```{r include=FALSE}
+dim(case)
+head(case)
+tail(case)
+```
+```{r include=FALSE}
+dim(waterwaste)
+head(waterwaste)
+tail(waterwaste)
+```
+```{r include=FALSE}
+str(case)
+```
+```{r include=FALSE}
+str(waterwaste)
+```
+```{r include=FALSE}
+summary(case$cases)
+summary(case$cumulative_cases)
+```
+```{r include=FALSE}
+waterwaste$pcr_target_avg_conc<-as.numeric(waterwaste$pcr_target_avg_conc)
+summary(waterwaste$pcr_target_avg_conc)
+summary(waterwaste$county_names)
+```
+```{r include=FALSE}
+#removing the rows  "NA" 
+waterwaste<-waterwaste[, pcr_target_avg_conc   := fifelse(waterwaste$pcr_target_avg_conc == "", NA_integer_, pcr_target_avg_conc)]
+waterwaste <- waterwaste[!is.na(pcr_target_avg_conc)]
+case<-case[, cases   := fifelse(case$cases == "", NA_integer_, cases)]
+case <- case[!is.na(cases)]
+case<-case[, cumulative_cases   := fifelse(case$cumulative_cases == "", NA_integer_, cumulative_cases)]
+case <- case[!is.na(cumulative_cases)]
+
+```
+# result   
+   for easier comparision and lining up, only shared the same county names and date between 2 data set. After a couple filter and selection, only 15181 observation from case dataset was remained  abd 12759 observation from waterwaste was remained. 
+   Based on the uneven observation between each counties and date, the mean of new cases(unit:people) and the pcr_target concentration(unit:copied/L) grouped by each date and counties. This would be the 12759 observations basic data which would be analyzed in the county and date dimension . 
+   In this data started at 2020-3-19, last updated on 2022-10-18. include 19 big counti around California, we can see that the new cases has a relatively positive trend when the date increased, and the pcr concentration in the waterwaste was also increased. (full data can be seen on appendix.) 
+   Then the dataset was calculated grouped by county first. In Figure 1, the map of California. Figure 1 shown a comparison distribution map of pcr_concentration mean of the virus and the new cases coming out in thie 2 years dataset. In Figure 1, Tthe pcr concentration and new cases are all shows a high number(lighther color) around Los Anglese area.
+```{r include=FALSE}
+colnames(case)[2] <- "county_names"
+colnames(waterwaste)[5] <- "date"
+waterwaste$date<-as.Date(waterwaste$date, "%m/%d/%Y")
+case$date<-as.Date(case$date, "%m/%d/%Y")
+res1<-semi_join(case, waterwaste, by = "county_names")
+case_final<-semi_join(res1,waterwaste,by="date")
+```
+```{r include=FALSE}
+#county name
+#date
+data_avg1<-
+    case_final[ , .(
+    new_case_mean      =mean(cases, na.rm=T),
+    cumulative_mean       =mean(cumulative_cases, na.rm=T))
+  ,by = c("date", "county_names")]
+  data_avg1
+data_avg2<-
+    waterwaste[ , .(
+    pcr_target_mean      =mean(pcr_target_avg_conc, na.rm=T),
+    lng= Sample_Location_Longitude,
+    lat=Sample_Location_Latitude
+    )
+  ,by = c("date", "county_names")]
+data_avg2
+```
+```{r}
+data_avg<-merge(
+  # Data
+  x     = data_avg1,      
+  y     = data_avg2, 
+  # List of variables to match
+  by.x  = c("date", "county_names"),
+  by.y  = c("date", "county_names"), 
+  # Which obs to keep?
+  all.x = FALSE,      
+  all.y = TRUE
+  ) 
+data_avg
+
+```
+ there are clear association between 
+
+```{r echo=FALSE}
+#county
+county_avg1<-
+    case_final[ , .(
+    new_case_mean      =mean(cases, na.rm=T),
+    cumulative_mean       =mean(cumulative_cases, na.rm=T))
+  ,by =  "county_names"]
+  county_avg1
+county_avg2<-
+    waterwaste[ , .(
+    pcr_target_mean      =mean(pcr_target_avg_conc, na.rm=T)
+    )
+  ,by = 'county_names']
+county_avg2$lat<-c(39.9927, 35.4937, 33.0114, 37.8534, 37.6017, 36.7378,34.0522,39.0840,33.7175,34.1083,32.7157,37.7749,37.5091,37.2010,37.4337,37.3337,38.7646,38.4747,34.3705)
+county_avg2$lon<-c(-120.8039, -118.8597,-115.4734, -121.9018,-121.7195,-119.7871,-118.2437,-122.8084,-117.8311,-117.2898,-117.1611,-122.4194,-120.9876,-120.7120,-122.4014,-121.8907,-121.9018,-121.3542,-119.1391)
+
+county_avg2
+```
+```{r}
+county_avg<-merge(
+  # Data
+  x     = county_avg1,      
+  y     = county_avg2, 
+  # List of variables to match
+  by.x  =  "county_names",
+  by.y  =  "county_names", 
+  # Which obs to keep?
+  all.x = FALSE,      
+  all.y = TRUE
+  ) 
+county_avg
+```
+
+```{r include=FALSE}
+#generating a color palette
+
+library(leaflet)
+pcr.pal <- colorNumeric(c('darkgreen','goldenrod'), domain=county_avg$pcr_target_mean)
+pcr.pal
+```                                                                                                                                                                                         
+```{r echo=FALSE}
+virusmap <- leaflet(county_avg) %>%
+# The looks of the Map
+addProviderTiles('CartoDB.Positron') %>%
+# Some circles
+addCircles(
+lat = ~lat, lng=~lon,
+# HERE IS OUR PAL!
+label = ~paste0(round(pcr_target_mean,2), 'copies/L'), color = ~ pcr.pal(pcr_target_mean),
+opacity = 1, fillOpacity = 1, radius = 500
+) %>%
+# And a pretty legend
+addLegend('bottomleft', pal=pcr.pal, values=county_avg$pcr_target_mean,
+title='SARS-CoV-2 concentration, copies/L', opacity=1)
+virusmap
+```
+```{r echo=FALSE}
+case.pal <- colorNumeric(c('darkgreen','goldenrod'), domain=county_avg$new_case_mean)
+case.pal
+casemap <- leaflet(county_avg) %>%
+# The looks of the Map
+addProviderTiles('CartoDB.Positron') %>%
+# Some circles
+addCircles(
+lat = ~lat, lng=~lon,
+# HERE IS OUR PAL!
+label = ~paste0(round(new_case_mean,2), 'cases'), color = ~ case.pal(new_case_mean),
+opacity = 1, fillOpacity = 1, radius = 500
+) %>%
+# And a pretty legend
+addLegend('bottomleft', pal=case.pal, values=county_avg$new_case_mean,
+title='new Covid-19 cases, observation', opacity=1)
+casemap
+
+```
+From the Figure one we can see that the there is a similar distribution between the virus concentration and the incidence case.
+#Figure2.line plot of virus concentration VS. cases 
+```{r}
+date_avg1<-
+    data_avg[ , .(
+    new_case_mean      =mean(new_case_mean, na.rm=T),
+    cumulative_mean       =mean(cumulative_mean, na.rm=T))
+  ,by = 'date']
+  date_avg1
+date_avg2<-
+    data_avg[ , .(
+    pcr_target_mean      =mean(pcr_target_mean, na.rm=T)
+    )
+  ,by ='date']
+date_avg2
+```
+```{r}
+date_avg<-merge(
+  # Data
+  x     = date_avg1,      
+  y     = date_avg2, 
+  # List of variables to match
+  by.x  = "date",
+  by.y  = "date", 
+  # Which obs to keep?
+  all.x = FALSE,      
+  all.y = TRUE
+  ) 
+date_avg
+```
+
+
+
+```{r}
+ggplot(data = date_avg)+
+ geom_line(mapping=aes(x=date, y=pcr_target_mean))
+```
+```{r}
+ggplot(data = date_avg)+
+ geom_line(mapping=aes(x=date, y=new_case_mean))
+```
+   Figure 2 shows a group of lineplot of time series vs pcr_concentration and new cases. We can see that there is all have a peak on July, 2020 in both variable, and a peak on the Janurary 2022.
+   based on this two dimension, there is an similar association between pcr concentration and also the mean. 
+   
+# discussion
+   even though there has a relatively obvious shared association between this 2 viriable. But there is still limitations.
+   eventhough the concentration of virus in the wastewater are a realtively strong evidence, but there based on the water survilence resource shown that there is still limitation on detection and quantification for using it as a dataset.
+   It is not possible to reliably and accurately predict the total number of infected individals in a community based on sewage surveillance alone.Wastewater surveillance will not represent homes on septic-based systems.Community-level wastewater surveillance at a wastewater treatment plant will not represent communities or facilities served by decentralized systems, such as prisons, universities, or hospitals that treat their own waste.Low levels of infection in a community may not be captured by sewage surveillance if the quantity of SARS-CoV-2 falls below the limit of detection for lab analysis.
+   except for the data itself, the limit area of dataset also affect the accurately.There is only 19 counties and 2 years of unconescutive data, which is limited and easily influenced by other factors. 
+# conclusion
+  based on the Figure shown above, there is a similar association between the pcr-concentration from wastewater and also the new daily cases. pcr-concentration from wastewater may can be used as a predictor of covid_19 but still further research is needed. 
+   
+# resource
+1.  https://data.ca.gov/dataset/covid-19-wastewater-surveillance-data-california
+2.   https://data.ca.gov/dataset/covid-19-time-series-metrics-by-county-and-state
+3.   https://transition.fcc.gov/oet/info/maps/census/fips/fips.txt
+4.   https://www.latlong.net/country/united-states-236.html
+5.   https://www.cdph.ca.gov/Programs/CID/DCDC/Pages/COVID-19/Wastewater-Surveillance.aspx
+
+
+Note that the `echo = FALSE` parameter was added to the code chunk to prevent printing of the R code that generated the plot.

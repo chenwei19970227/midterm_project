@@ -1,0 +1,273 @@
+---
+title: "midterm project_appendix"
+author: "chen wei"
+date: "2022-10-23"
+output: github_document
+always_allow_html : true
+---
+
+## R Markdown
+```{r setup, results='hide'}
+library(lubridate)
+library(usmap)
+library(dplyr)
+library(tidyverse)
+library(data.table)
+library(dbplyr)
+library(ggplot2)
+library(webshot)
+```
+## Data Wrangling
+# STEP 0.Read in the data
+First download and then read in with data.
+```{r}
+case <- data.table::fread("Statewide COVID-19 Cases Deaths Tests.csv")
+waterwaste <- data.table::fread("master-covid-public.csv")
+waterwaste<-select(waterwaste, epaid,wwtp_name,reporting_jurisdiction,county_names
+,test_result_date,pcr_target_avg_conc,Sample_Location_Longitude,Sample_Location_Latitude)
+```
+
+```{r}
+#switch the FIPS code in waterwaste data to county name for a easier identification and further expolore
+waterwaste$county_names[waterwaste$county_names=="06067"]<-"Sacramento"
+waterwaste$county_names[waterwaste$county_names=="06001, 06013"]<-"Alameda"
+waterwaste$county_names[waterwaste$county_names=="06063"]<-"Plumas"
+waterwaste$county_names[waterwaste$county_names=="06029"]<-"Kern"
+waterwaste$county_names[waterwaste$county_names=="06025"]<-"Imperial"
+waterwaste$county_names[waterwaste$county_names=="06013"]<-"Contra Costa"
+waterwaste$county_names[waterwaste$county_names=="06019"]<-"Fresno"
+waterwaste$county_names[waterwaste$county_names=="06037"]<-"Los Angeles"
+waterwaste$county_names[waterwaste$county_names=="06037, 06111"]<-"Los Angeles"
+waterwaste$county_names[waterwaste$county_names=="06033"]<-"Lake"
+waterwaste$county_names[waterwaste$county_names=="06059"]<-"Orange"
+waterwaste$county_names[waterwaste$county_names=="06071"]<-"San Bernardino"
+waterwaste$county_names[waterwaste$county_names=="06073"]<-"San Diego"
+waterwaste$county_names[waterwaste$county_names=="06075, 06081"]<-"San Francisco"
+waterwaste$county_names[waterwaste$county_names=="06099"]<-"Stanislaus"
+waterwaste$county_names[waterwaste$county_names=="06047"]<-"Merced"
+waterwaste$county_names[waterwaste$county_names=="06081"]<-"San Mateo"
+waterwaste$county_names[waterwaste$county_names=="06085"]<-"Santa Clara"
+waterwaste$county_names[waterwaste$county_names=="06111"]<-"Ventura"
+waterwaste$county_names[waterwaste$county_names=="06113"]<-"Yolo"
+
+waterwaste$county_names[waterwaste$county_names=="Orange County"]<-"Orange"
+```
+
+```{r}
+dim(case)
+head(case)
+tail(case)
+```
+```{r}
+dim(waterwaste)
+head(waterwaste)
+tail(waterwaste)
+```
+```{r}
+str(case)
+```
+```{r}
+str(waterwaste)
+```
+```{r}
+summary(case$cases)
+summary(case$cumulative_cases)
+```
+```{r}
+waterwaste$pcr_target_avg_conc<-as.numeric(waterwaste$pcr_target_avg_conc)
+summary(waterwaste$pcr_target_avg_conc)
+summary(waterwaste$county_names)
+```
+```{r}
+#removing the rows  "NA" 
+waterwaste<-waterwaste[, pcr_target_avg_conc   := fifelse(waterwaste$pcr_target_avg_conc == "", NA_integer_, pcr_target_avg_conc)]
+waterwaste <- waterwaste[!is.na(pcr_target_avg_conc)]
+case<-case[, cases   := fifelse(case$cases == "", NA_integer_, cases)]
+case <- case[!is.na(cases)]
+case<-case[, cumulative_cases   := fifelse(case$cumulative_cases == "", NA_integer_, cumulative_cases)]
+case <- case[!is.na(cumulative_cases)]
+
+```
+also, we take a look of the varaible
+```{r}
+str(case)
+```
+```{r}
+str(waterwaste)
+```
+##STEP 1-3 Check for any data issues, particularly in the key variable we are analyzing.
+```{r}
+summary(case$cases)
+summary(case$cumulative_cases)
+```
+```{r}
+waterwaste$pcr_target_avg_conc<-as.numeric(waterwaste$pcr_target_avg_conc)
+summary(waterwaste$pcr_target_avg_conc)
+summary(waterwaste$county_names)
+```
+remove all the NA's 
+```{r}
+#removing the rows with second_hand and gas_stove as "NA" 
+waterwaste<-waterwaste[, pcr_target_avg_conc   := fifelse(waterwaste$pcr_target_avg_conc == "", NA_integer_, pcr_target_avg_conc)]
+waterwaste <- waterwaste[!is.na(pcr_target_avg_conc)]
+case<-case[, cases   := fifelse(case$cases == "", NA_integer_, cases)]
+case <- case[!is.na(cases)]
+case<-case[, cumulative_cases   := fifelse(case$cumulative_cases == "", NA_integer_, cumulative_cases)]
+case <- case[!is.na(cumulative_cases)]
+
+```
+
+#merge the data
+```{r}
+colnames(case)[2] <- "county_names"
+colnames(waterwaste)[5] <- "date"
+waterwaste$date<-as.Date(waterwaste$date, "%m/%d/%Y")
+case$date<-as.Date(case$date, "%m/%d/%Y")
+res1<-semi_join(case, waterwaste, by = "county_names")
+case_final<-semi_join(res1,waterwaste,by="date")
+```
+#4 calculate the mean
+```{r}
+#county name
+#date
+data_avg1<-
+    case_final[ , .(
+    new_case_mean      =mean(cases, na.rm=T),
+    cumulative_mean       =mean(cumulative_cases, na.rm=T))
+  ,by = c("date", "county_names")]
+  data_avg1
+data_avg2<-
+    waterwaste[ , .(
+    pcr_target_mean      =mean(pcr_target_avg_conc, na.rm=T),
+    lng= Sample_Location_Longitude,
+    lat=Sample_Location_Latitude
+    )
+  ,by = c("date", "county_names")]
+data_avg2
+```
+```{r}
+data_avg<-merge(
+  # Data
+  x     = data_avg1,      
+  y     = data_avg2, 
+  # List of variables to match
+  by.x  = c("date", "county_names"),
+  by.y  = c("date", "county_names"), 
+  # Which obs to keep?
+  all.x = FALSE,      
+  all.y = TRUE
+  ) 
+data_avg
+
+```
+```{r}
+#county
+county_avg1<-
+    case_final[ , .(
+    new_case_mean      =mean(cases, na.rm=T),
+    cumulative_mean       =mean(cumulative_cases, na.rm=T))
+  ,by =  "county_names"]
+  county_avg1
+county_avg2<-
+    waterwaste[ , .(
+    pcr_target_mean      =mean(pcr_target_avg_conc, na.rm=T)
+    )
+  ,by = 'county_names']
+county_avg2$lat<-c(39.9927, 35.4937, 33.0114, 37.8534, 37.6017, 36.7378,34.0522,39.0840,33.7175,34.1083,32.7157,37.7749,37.5091,37.2010,37.4337,37.3337,38.7646,38.4747,34.3705)
+county_avg2$lon<-c(-120.8039, -118.8597,-115.4734, -121.9018,-121.7195,-119.7871,-118.2437,-122.8084,-117.8311,-117.2898,-117.1611,-122.4194,-120.9876,-120.7120,-122.4014,-121.8907,-121.9018,-121.3542,-119.1391)
+
+county_avg2
+county_avg<-merge(
+  # Data
+  x     = county_avg1,      
+  y     = county_avg2, 
+  # List of variables to match
+  by.x  =  "county_names",
+  by.y  =  "county_names", 
+  # Which obs to keep?
+  all.x = FALSE,      
+  all.y = TRUE
+  ) 
+county_avg
+```
+
+##second part. 
+
+```{r}
+#generating a color palette
+
+library(leaflet)
+pcr.pal <- colorNumeric(c('darkgreen','goldenrod'), domain=county_avg$pcr_target_mean)
+pcr.pal
+```                                                                                                                                                                                         
+```{r echo=FALSE}
+virusmap <- leaflet(county_avg) %>%
+# The looks of the Map
+addProviderTiles('CartoDB.Positron') %>%
+# Some circles
+addCircles(
+lat = ~lat, lng=~lon,
+# HERE IS OUR PAL!
+label = ~paste0(round(pcr_target_mean,2), 'copies/L'), color = ~ pcr.pal(pcr_target_mean),
+opacity = 1, fillOpacity = 1, radius = 500
+) %>%
+# And a pretty legend
+addLegend('bottomleft', pal=pcr.pal, values=county_avg$pcr_target_mean,
+title='SARS-CoV-2 concentration, copies/L', opacity=1)
+virusmap
+
+```
+```{r}
+case.pal <- colorNumeric(c('darkgreen','goldenrod'), domain=county_avg$new_case_mean)
+case.pal
+casemap <- leaflet(county_avg) %>%
+# The looks of the Map
+addProviderTiles('CartoDB.Positron') %>%
+# Some circles
+addCircles(
+lat = ~lat, lng=~lon,
+# HERE IS OUR PAL!
+label = ~paste0(round(new_case_mean,2), 'cases'), color = ~ case.pal(new_case_mean),
+opacity = 1, fillOpacity = 1, radius = 500
+) %>%
+# And a pretty legend
+addLegend('bottomleft', pal=case.pal, values=county_avg$new_case_mean,
+title='new Covid-19 cases, observation', opacity=1)
+casemap
+```
+```{r}
+date_avg1<-
+    data_avg[ , .(
+    new_case_mean      =mean(new_case_mean, na.rm=T),
+    cumulative_mean       =mean(cumulative_mean, na.rm=T))
+  ,by = 'date']
+  date_avg1
+date_avg2<-
+    data_avg[ , .(
+    pcr_target_mean      =mean(pcr_target_mean, na.rm=T)
+    )
+  ,by ='date']
+date_avg2
+date_avg<-merge(
+  # Data
+  x     = date_avg1,      
+  y     = date_avg2, 
+  # List of variables to match
+  by.x  = "date",
+  by.y  = "date", 
+  # Which obs to keep?
+  all.x = FALSE,      
+  all.y = TRUE
+  ) 
+date_avg
+ggplot(data = date_avg)+
+ geom_line(mapping=aes(x=date, y=pcr_target_mean))
+ggplot(data = date_avg)+
+ geom_line(mapping=aes(x=date, y=new_case_mean))
+```
+from the scatterplot above we can see that individual lives in different town has a different in increasing values ,but they are all the bmi is potively associated with the fev_mean
+#Figure2.Stacked histograms of FEV by BMI category and FEV by smoke/gas exposure. Use different color schemes than the ggplot default.
+
+
+   
+Note that the `echo = FALSE` parameter was added to the code chunk to prevent printing of the R code that generated the plot.
